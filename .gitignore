@@ -1,0 +1,31 @@
+.DS_Store
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Local environments and editor settings
+.venv/
+venv/
+env/
+.vscode/
+
+# Datasets and generated data
+Dataset_BUSI_with_GT/
+Dataset*/
+dataset/
+datasets/
+data/
+archive/
+processed/
+processed*/
+
+# Reflection documents
+*Reflection*
+*reflection*
+~$*
+
+# Large model artifacts excluded from normal GitHub push
+AttentionCustomUNet.h5
+unet_busi.weights.h5
+*.zip
+

@@ -1,0 +1,12 @@
+torch
+monai
+matplotlib
+numpy
+Pillow
+opencv-python-headless
+scikit-learn
+seaborn
+tqdm
+pydicom
+ipykernel
+jupyter
