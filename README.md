@@ -29,20 +29,6 @@ Throughout this project, our main development and collaboration workflow used **
 └── README.md
 ```
 
-## What Was Removed Before Upload
-
-The GitHub version intentionally excludes files that are too large, private, or unnecessary for code review:
-
-- Raw datasets, including `Dataset_BUSI_with_GT/`
-- Generated dataset folders such as `archive/`, `processed/`, and `processed_v2/`
-- Weekly reflection documents and temporary reflection files
-- Local virtual environments such as `.venv/`
-- Local editor metadata such as `.vscode/`
-- Nested Git metadata from copied source folders
-- Model files larger than GitHub's normal upload limit, including `AttentionCustomUNet.h5` and `unet_busi.weights.h5`
-
-These files should be restored locally or mounted in Google Colab when rerunning the notebooks.
-
 ## Running the Notebooks
 
 The recommended way to run the project is still Google Colab:
