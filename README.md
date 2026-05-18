@@ -67,37 +67,7 @@ For the full assessment, the final written report is the main written submission
 
 `02_computer_science_studio2/` contains the later Studio 2 work, including MONAI DenseNet121 experiments, notebook-to-script exports, local run notes, and supporting material. These files are useful background, but they are not the main final pipeline.
 
-## Running the Project
 
-The recommended way to run the notebooks is Google Colab:
-
-1. Open the notebook in Colab.
-2. Mount Google Drive.
-3. Restore or mount the BUSI dataset in the expected Drive path.
-4. Install missing packages inside the notebook if Colab asks for them.
-5. Run the cells in order.
-
-For local Studio 2 scripts, install dependencies with:
-
-```bash
-pip install -r 02_computer_science_studio2/requirements.txt
-```
-
-Local runs may need path changes because dataset folders were not uploaded to GitHub.
-
-## What Was Removed Before Upload
-
-Large, private, or submission-only files were removed before pushing to GitHub:
-
-- Raw BUSI dataset folders, including `Dataset_BUSI_with_GT/`
-- Generated dataset folders such as `archive/`, `processed/`, and `processed_v2/`
-- Reflection journals and temporary reflection documents
-- Local virtual environments such as `.venv/`
-- Local editor metadata such as `.vscode/`
-- Nested Git folders from copied source directories
-- Oversized model files that are not suitable for normal GitHub upload
-
-The removed dataset files should be restored through Google Drive or Colab before rerunning the full training pipeline.
 
 ## Project Summary
 
