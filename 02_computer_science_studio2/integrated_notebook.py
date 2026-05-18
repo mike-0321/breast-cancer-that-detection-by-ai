@@ -1,17 +1,11 @@
-# ============================================================================
-# Cell 1: Mount Google Drive
-# ============================================================================
+# --- Mount Google Drive ---
 from google.colab import drive
 drive.mount('/content/drive')
 
-# ============================================================================
-# Cell 2: Install Dependencies
-# ============================================================================
+# --- Install Dependencies ---
 # !pip install -q monai scikit-learn pydicom opencv-python-headless
 
-# ============================================================================
-# Cell 3: Import Libraries
-# ============================================================================
+# --- Import Libraries ---
 import os
 import glob
 import shutil
@@ -47,9 +41,7 @@ np.random.seed(42)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Using device: {device}')
 
-# ============================================================================
-# Cell 4: Path Configuration
-# ============================================================================
+# --- Path Configuration ---
 base_dir        = '/content/drive/MyDrive/breast cancer'
 train_dir       = os.path.join(base_dir, 'train')
 valid_dir       = os.path.join(base_dir, 'valid')
@@ -63,9 +55,7 @@ processed_test  = os.path.join(processed_dir, 'test')
 model_path = '/content/drive/MyDrive/best_densenet121_cbam.pth'
 IMG_SIZE   = 224  # Increased from 96 to 224
 
-# ============================================================================
-# Cell 5: Image Loading Functions
-# ============================================================================
+# --- Image Loading Functions ---
 
 def load_dicom_image(file_path):
     """Load and normalize a DICOM image."""
@@ -102,9 +92,7 @@ def load_image(file_path):
         return load_regular_image(file_path)
 
 
-# ============================================================================
-# Cell 6: White Background Detection Functions
-# ============================================================================
+# --- White Background Detection Functions ---
 
 def analyze_image(image_array):
     """
@@ -140,9 +128,7 @@ def is_white_background(stats,
     return False
 
 
-# ============================================================================
-# Cell 7: Step 1 — Scan Dataset and Detect White-Background Images
-# ============================================================================
+# --- Step 1 — Scan Dataset and Detect White-Background Images ---
 
 splits  = ['train', 'valid', 'test']
 classes = ['0', '1']
@@ -208,9 +194,7 @@ with open(white_list_path, 'w') as f:
 print(f"\nWhite-bg file list saved to: {white_list_path}")
 
 
-# ============================================================================
-# Cell 8: Visualize White-BG Detection Results
-# ============================================================================
+# --- Visualize White-BG Detection Results ---
 
 # --- Distribution plots ---
 fig, axes = plt.subplots(2, 2, figsize=(14, 10))
@@ -276,9 +260,7 @@ show_sample_images(white_bg_files, "Detected White-BG Images")
 show_sample_images(normal_files,   "Normal Images")
 
 
-# ============================================================================
-# Cell 9: Breast Region Cropping Functions
-# ============================================================================
+# --- Breast Region Cropping Functions ---
 
 def create_breast_mask(image):
     """Return indices of all non-zero pixels."""
@@ -311,9 +293,7 @@ def crop_breast_region(image, crop_x=None, crop_y=None):
     return image[min_row:max_row, min_col:max_col]
 
 
-# ============================================================================
-# Cell 10: Step 2 — Preprocess (Skip White-BG): Load → Filter → Crop → Save
-# ============================================================================
+# --- Step 2 — Preprocess (Skip White-BG): Load → Filter → Crop → Save ---
 
 white_bg_set = set(s['path'] for s in white_bg_files)
 print(f"White-BG set size: {len(white_bg_set)}")
@@ -400,9 +380,7 @@ preprocess_and_save_dataset(test_dir, processed_test,
                             target_size=(IMG_SIZE, IMG_SIZE), skip_set=white_bg_set)
 
 
-# ============================================================================
-# Cell 11: Visualize Preprocessing Comparison (Optional)
-# ============================================================================
+# --- Visualize Preprocessing Comparison (Optional) ---
 
 def visualize_preprocessing(src_dir, dst_dir, class_name='1', n_samples=3):
     """Show side-by-side comparison of original vs preprocessed images."""
@@ -443,9 +421,7 @@ def visualize_preprocessing(src_dir, dst_dir, class_name='1', n_samples=3):
 visualize_preprocessing(train_dir, processed_train, class_name='1', n_samples=3)
 
 
-# ============================================================================
-# Cell 12: Step 3 — Build File Lists (from preprocessed directory)
-# ============================================================================
+# --- Step 3 — Build File Lists (from preprocessed directory) ---
 
 def build_file_list(data_dir):
     """Build file list from preprocessed .npy directory."""
@@ -466,9 +442,7 @@ print(f'  Train: {len(train_files)} | Valid: {len(valid_files)} | Test: {len(tes
 print(f'  Train class 0: {train_labels.count(0)}, class 1: {train_labels.count(1)}')
 
 
-# ============================================================================
-# Cell 13: Custom Dataset (loads preprocessed .npy files)
-# ============================================================================
+# --- Custom Dataset (loads preprocessed .npy files) ---
 
 class PreprocessedMammogramDataset(Dataset):
     """Dataset that loads preprocessed .npy files (shape: 3×H×W)."""
@@ -489,9 +463,7 @@ class PreprocessedMammogramDataset(Dataset):
         return image, label
 
 
-# ============================================================================
-# Cell 14: Data Augmentation + DataLoader
-# ============================================================================
+# --- Data Augmentation + DataLoader ---
 
 train_transforms = Compose([
     EnsureType(),
@@ -520,9 +492,7 @@ sample_img, sample_label = train_ds[0]
 print(f'Sample shape: {sample_img.shape}, label: {sample_label}')
 
 
-# ============================================================================
-# Cell 15: CBAM Module
-# ============================================================================
+# --- CBAM Module ---
 
 class ChannelAttention(nn.Module):
     """Channel Attention: learns per-channel importance weights."""
@@ -569,9 +539,7 @@ class CBAM(nn.Module):
         return self.spatial_attn(self.channel_attn(x))
 
 
-# ============================================================================
-# Cell 16: Model Definition (DenseNet121 + CBAM)
-# ============================================================================
+# --- Model Definition (DenseNet121 + CBAM) ---
 
 class DenseNetWithCBAM(nn.Module):
     """DenseNet121 backbone + CBAM attention + classification head."""
@@ -598,9 +566,7 @@ model = DenseNetWithCBAM(num_classes=2, dropout_rate=0.4).to(device)
 print(f"Total parameters: {sum(p.numel() for p in model.parameters()):,}")
 
 
-# ============================================================================
-# Cell 17: Training Configuration
-# ============================================================================
+# --- Training Configuration ---
 MAX_EPOCHS   = 30
 LR           = 1e-4
 WEIGHT_DECAY = 1e-4
@@ -618,9 +584,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=LR, weight_decay=WEIGHT_DECA
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=MAX_EPOCHS, eta_min=1e-6)
 
 
-# ============================================================================
-# Cell 18: Training Loop
-# ============================================================================
+# --- Training Loop ---
 train_losses, val_accs, val_losses, lr_history = [], [], [], []
 best_val_acc   = 0.0
 patience_count = 0
@@ -680,9 +644,7 @@ for epoch in range(MAX_EPOCHS):
 print(f"\nBest Validation Accuracy: {best_val_acc:.4f}")
 
 
-# ============================================================================
-# Cell 19: Training Curves
-# ============================================================================
+# --- Training Curves ---
 epochs_ran = len(train_losses)
 x = range(1, epochs_ran + 1)
 
@@ -700,9 +662,7 @@ plt.savefig(os.path.join(base_dir, 'training_curve_cbam.png'), dpi=150)
 plt.show()
 
 
-# ============================================================================
-# Cell 20: Evaluate on Validation Set
-# ============================================================================
+# --- Evaluate on Validation Set ---
 model.load_state_dict(torch.load(model_path, map_location=device))
 model.eval()
 
@@ -719,9 +679,7 @@ all_labels_eval = np.array(all_labels_eval)
 all_probs       = np.array(all_probs)
 
 
-# ============================================================================
-# Cell 21: Confusion Matrix + Classification Report
-# ============================================================================
+# --- Confusion Matrix + Classification Report ---
 CLASS_NAMES = ['Benign', 'Malignant']
 cm = confusion_matrix(all_labels_eval, all_preds)
 
@@ -756,9 +714,7 @@ print(classification_report(all_labels_eval, all_preds,
                             target_names=CLASS_NAMES, digits=4))
 
 
-# ============================================================================
-# Cell 22: Grad-CAM Attention Visualization Tool
-# ============================================================================
+# --- Grad-CAM Attention Visualization Tool ---
 # Purpose: Overlay attention heatmaps onto original mammogram images to
 #          verify that the CBAM attention mechanism focuses on the correct
 #          lesion regions and is not being misled by background artifacts.
@@ -867,9 +823,7 @@ def overlay_heatmap(image, heatmap, alpha=0.4, colormap=cv2.COLORMAP_JET):
     return np.clip((1 - alpha) * image_3ch + alpha * heatmap_color, 0, 1)
 
 
-# ============================================================================
-# Cell 23: Generate Grad-CAM Visualizations for Validation Samples
-# ============================================================================
+# --- Generate Grad-CAM Visualizations for Validation Samples ---
 
 # Load best model
 model.load_state_dict(torch.load(model_path, map_location=device))
@@ -893,9 +847,7 @@ selected_indices = np.concatenate([selected_benign, selected_malignant])
 print(f"Selected {len(selected_benign)} benign + {len(selected_malignant)} malignant samples")
 
 
-# ============================================================================
-# Cell 24: Display Grad-CAM Results (4-column layout per sample)
-# ============================================================================
+# --- Display Grad-CAM Results (4-column layout per sample) ---
 # Columns: Original | Heatmap | Overlay | High-Attention Contour
 # Green border = correct prediction, Red border = wrong prediction
 
@@ -959,9 +911,7 @@ plt.show()
 print(f"Saved to: {os.path.join(base_dir, 'gradcam_attention_visualization.png')}")
 
 
-# ============================================================================
-# Cell 25: Compare Backbone vs CBAM Attention
-# ============================================================================
+# --- Compare Backbone vs CBAM Attention ---
 # Shows how CBAM shifts the model's attention compared to the raw backbone.
 # Difference map: Red = enhanced by CBAM, Blue = suppressed by CBAM
 
@@ -1020,9 +970,7 @@ plt.show()
 print(f"Saved to: {os.path.join(base_dir, 'gradcam_backbone_vs_cbam.png')}")
 
 
-# ============================================================================
-# Cell 26: Attention Statistics — Verify Model Focuses on Correct Regions
-# ============================================================================
+# --- Attention Statistics — Verify Model Focuses on Correct Regions ---
 
 print("\n" + "=" * 70)
 print("Attention Distribution Analysis")

@@ -1,17 +1,11 @@
-# ============================================================================
-# Cell 1: Mount Google Drive
-# ============================================================================
+# --- Mount Google Drive ---
 from google.colab import drive
 drive.mount('/content/drive')
 
-# ============================================================================
-# Cell 2: Install Dependencies
-# ============================================================================
+# --- Install Dependencies ---
 # !pip install -q monai scikit-learn pydicom opencv-python-headless
 
-# ============================================================================
-# Cell 3: Import Libraries
-# ============================================================================
+# --- Import Libraries ---
 import os, glob, shutil, cv2, json
 import numpy as np
 import torch
@@ -43,9 +37,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Device: {device}')
 
 
-# ============================================================================
-# Cell 4: Path Configuration
-# ============================================================================
+# --- Path Configuration ---
 base_dir        = '/content/drive/MyDrive/breast cancer'
 train_dir       = os.path.join(base_dir, 'train')
 valid_dir       = os.path.join(base_dir, 'valid')
@@ -58,9 +50,7 @@ model_path      = '/content/drive/MyDrive/best_densenet121_v2.pth'
 IMG_SIZE        = 224
 
 
-# ============================================================================
-# Cell 5: Image Loading
-# ============================================================================
+# --- Image Loading ---
 
 def load_image_grayscale(file_path):
     """Load any image as grayscale float32, range [0, 1]."""
@@ -79,9 +69,7 @@ def load_image_grayscale(file_path):
         return None
 
 
-# ============================================================================
-# Cell 6: White-BG Detection
-# ============================================================================
+# --- White-BG Detection ---
 
 def is_white_background(image, wr_thresh=0.3, br_thresh=0.5, mean_thresh=0.7):
     """Check if image has a white background (returns True if white)."""
@@ -94,9 +82,7 @@ def is_white_background(image, wr_thresh=0.3, br_thresh=0.5, mean_thresh=0.7):
     return False
 
 
-# ============================================================================
-# Cell 7: Priority 1 — Breast Mask + Region Crop (NO stretching)
-# ============================================================================
+# --- Priority 1 — Breast Mask + Region Crop (NO stretching) ---
 
 def create_breast_mask(image):
     """
@@ -124,9 +110,7 @@ def create_breast_mask(image):
     return mask
 
 
-# ============================================================================
-# Cell 8: Priority 2 — Pectoral Muscle Removal (simple approach)
-# ============================================================================
+# --- Priority 2 — Pectoral Muscle Removal (simple approach) ---
 
 def remove_pectoral_muscle(image, mask):
     """
@@ -175,9 +159,7 @@ def remove_pectoral_muscle(image, mask):
     return updated_mask
 
 
-# ============================================================================
-# Cell 9: Crop + Pad (NO stretching, aspect ratio preserved)
-# ============================================================================
+# --- Crop + Pad (NO stretching, aspect ratio preserved) ---
 
 def crop_and_pad_breast(image, mask, target_size=224):
     """
@@ -225,9 +207,7 @@ def crop_and_pad_breast(image, mask, target_size=224):
     return processed, mask_resized
 
 
-# ============================================================================
-# Cell 10: Full Preprocessing Pipeline
-# ============================================================================
+# --- Full Preprocessing Pipeline ---
 
 def preprocess_mammogram(image, target_size=224, remove_pectoral=True):
     """
@@ -252,9 +232,7 @@ def preprocess_mammogram(image, target_size=224, remove_pectoral=True):
     return processed_img, processed_mask
 
 
-# ============================================================================
-# Cell 11: Step 1 — Scan + Filter White-BG + Preprocess + Save
-# ============================================================================
+# --- Step 1 — Scan + Filter White-BG + Preprocess + Save ---
 
 def preprocess_and_save_all(src_dir, dst_dir, target_size=224, remove_pectoral=True):
     """
@@ -319,9 +297,7 @@ for split_name, src, dst in [('train', train_dir, processed_train),
     stats_all[split_name] = preprocess_and_save_all(src, dst, IMG_SIZE, remove_pectoral=True)
 
 
-# ============================================================================
-# Cell 12: Visualize Preprocessing Results
-# ============================================================================
+# --- Visualize Preprocessing Results ---
 
 def visualize_pipeline(src_dir, dst_dir, cls='1', n=4):
     """Show original → mask → cropped+padded for a few samples."""
@@ -363,9 +339,7 @@ visualize_pipeline(train_dir, processed_train, cls='1', n=4)
 visualize_pipeline(train_dir, processed_train, cls='0', n=4)
 
 
-# ============================================================================
-# Cell 13: Build File Lists + Dataset
-# ============================================================================
+# --- Build File Lists + Dataset ---
 
 def build_file_list(data_dir):
     files, labels = [], []
@@ -418,9 +392,7 @@ class MammogramDataset(Dataset):
         return image, mask, label
 
 
-# ============================================================================
-# Cell 14: Augmentation + DataLoader
-# ============================================================================
+# --- Augmentation + DataLoader ---
 
 train_transforms = Compose([
     EnsureType(),
@@ -448,9 +420,7 @@ img, msk, lbl = train_ds[0]
 print(f'Sample: image={img.shape}, mask={msk.shape}, label={lbl}')
 
 
-# ============================================================================
-# Cell 15: Attention Modules
-# ============================================================================
+# --- Attention Modules ---
 
 class SEBlock(nn.Module):
     """Squeeze-and-Excitation block for channel attention."""
@@ -527,9 +497,7 @@ class MedicalAttentionBlock(nn.Module):
         return x
 
 
-# ============================================================================
-# Cell 16: Model Definition
-# ============================================================================
+# --- Model Definition ---
 
 class DenseNetMedicalAttention(nn.Module):
     """
@@ -576,9 +544,7 @@ disable_inplace_relu(model)
 print(f"Total parameters: {sum(p.numel() for p in model.parameters()):,}")
 
 
-# ============================================================================
-# Cell 17: Training Configuration
-# ============================================================================
+# --- Training Configuration ---
 MAX_EPOCHS   = 30
 LR           = 1e-4
 WEIGHT_DECAY = 1e-4
@@ -596,9 +562,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=LR, weight_decay=WEIGHT_DECA
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=MAX_EPOCHS, eta_min=1e-6)
 
 
-# ============================================================================
-# Cell 18: Training Loop (passes mask to model)
-# ============================================================================
+# --- Training Loop (passes mask to model) ---
 train_losses, val_accs, val_losses, lr_history = [], [], [], []
 best_val_acc = 0.0
 patience_count = 0
@@ -661,9 +625,7 @@ for epoch in range(MAX_EPOCHS):
 print(f"\nBest Validation Accuracy: {best_val_acc:.4f}")
 
 
-# ============================================================================
-# Cell 19: Training Curves
-# ============================================================================
+# --- Training Curves ---
 x = range(1, len(train_losses) + 1)
 fig, axes = plt.subplots(1, 3, figsize=(16, 4))
 axes[0].plot(x, train_losses, 'o-', label='Train'); axes[0].plot(x, val_losses, 's-', label='Val')
@@ -676,9 +638,7 @@ plt.savefig(os.path.join(base_dir, 'training_curve_v2.png'), dpi=150)
 plt.show()
 
 
-# ============================================================================
-# Cell 20: Evaluation
-# ============================================================================
+# --- Evaluation ---
 model.load_state_dict(torch.load(model_path, map_location=device))
 model.eval()
 
@@ -695,9 +655,7 @@ all_labels_eval = np.array(all_labels_eval)
 all_probs       = np.array(all_probs)
 
 
-# ============================================================================
-# Cell 21: Confusion Matrix + Report
-# ============================================================================
+# --- Confusion Matrix + Report ---
 CLASS_NAMES = ['Benign', 'Malignant']
 cm = confusion_matrix(all_labels_eval, all_preds)
 
@@ -724,9 +682,7 @@ if auc: print(f"AUC      : {auc:.4f}")
 print("\n" + classification_report(all_labels_eval, all_preds, target_names=CLASS_NAMES, digits=4))
 
 
-# ============================================================================
-# Cell 22: Grad-CAM for Mask-Guided Attention Model
-# ============================================================================
+# --- Grad-CAM for Mask-Guided Attention Model ---
 
 class GradCAM:
     """Grad-CAM adapted for mask-guided model (forward takes image + mask)."""
@@ -771,9 +727,7 @@ def overlay_heatmap(image, heatmap, alpha=0.4):
     return np.clip((1 - alpha) * img3 + alpha * hm_color, 0, 1)
 
 
-# ============================================================================
-# Cell 23: Grad-CAM Visualization (4-column layout)
-# ============================================================================
+# --- Grad-CAM Visualization (4-column layout) ---
 
 model.load_state_dict(torch.load(model_path, map_location=device))
 model.eval()
@@ -827,9 +781,7 @@ plt.savefig(os.path.join(base_dir, 'gradcam_v2.png'), dpi=150, bbox_inches='tigh
 plt.show()
 
 
-# ============================================================================
-# Cell 24: Attention With Mask vs Without Mask Comparison
-# ============================================================================
+# --- Attention With Mask vs Without Mask Comparison ---
 
 print("=" * 70)
 print("Comparison: Attention WITH mask guidance vs WITHOUT mask guidance")
@@ -873,9 +825,7 @@ plt.savefig(os.path.join(base_dir, 'mask_vs_no_mask_attention.png'), dpi=150, bb
 plt.show()
 
 
-# ============================================================================
-# Cell 25: Attention Statistics
-# ============================================================================
+# --- Attention Statistics ---
 
 n_analysis = min(50, len(valid_ds))
 analysis_idx = np.random.choice(len(valid_ds), n_analysis, replace=False)

@@ -1,17 +1,11 @@
-# ============================================================================
-# Cell 1: Mount Google Drive
-# ============================================================================
+# --- Mount Google Drive ---
 from google.colab import drive
 drive.mount('/content/drive')
 
-# ============================================================================
-# Cell 2: Install Dependencies
-# ============================================================================
+# --- Install Dependencies ---
 # !pip install -q monai scikit-learn opencv-python-headless
 
-# ============================================================================
-# Cell 3: Import Libraries
-# ============================================================================
+# --- Import Libraries ---
 import os, glob, shutil, cv2
 import numpy as np
 import torch
@@ -40,9 +34,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Device: {device}')
 
 
-# ============================================================================
-# Cell 4: Path Configuration
-# ============================================================================
+# --- Path Configuration ---
 base_dir        = '/content/drive/MyDrive/breast cancer'
 train_dir       = os.path.join(base_dir, 'train')
 valid_dir       = os.path.join(base_dir, 'valid')
@@ -55,9 +47,7 @@ model_path      = '/content/drive/MyDrive/best_model_v2_1.pth'
 IMG_SIZE        = 224
 
 
-# ============================================================================
-# Cell 5: Image Loading
-# ============================================================================
+# --- Image Loading ---
 
 def load_image_grayscale(file_path):
     """Load any image as grayscale float32, range [0, 1]."""
@@ -76,9 +66,7 @@ def load_image_grayscale(file_path):
         return None
 
 
-# ============================================================================
-# Cell 6: White-BG Detection
-# ============================================================================
+# --- White-BG Detection ---
 
 def is_white_background(image, wr_thresh=0.3, br_thresh=0.5, mean_thresh=0.7):
     """Returns True if image has a white background."""
@@ -91,9 +79,7 @@ def is_white_background(image, wr_thresh=0.3, br_thresh=0.5, mean_thresh=0.7):
     return False
 
 
-# ============================================================================
-# Cell 7: Breast Mask (ONLY for bounding box localization)
-# ============================================================================
+# --- Breast Mask (ONLY for bounding box localization) ---
 
 def create_breast_mask(image):
     """
@@ -112,11 +98,9 @@ def create_breast_mask(image):
     return (labels == largest).astype(np.uint8)
 
 
-# ============================================================================
-# Cell 8: Crop + Pad — NO internal pixel modification
-# ============================================================================
-# [CHANGED from v2] Removed image * mask — original pixels fully preserved.
-# [CHANGED from v2] No pectoral removal — all internal breast info kept.
+# --- Crop + Pad — NO internal pixel modification ---
+# Update from v2: Removed image * mask — original pixels fully preserved.
+# Update from v2: No pectoral removal — all internal breast info kept.
 
 def crop_and_pad(image, mask, target_size=224):
     """
@@ -150,9 +134,7 @@ def crop_and_pad(image, mask, target_size=224):
     return proc_img, proc_mask
 
 
-# ============================================================================
-# Cell 9: Batch Preprocess + Save
-# ============================================================================
+# --- Batch Preprocess + Save ---
 
 def preprocess_and_save_all(src_dir, dst_dir, target_size=224):
     """Load → White-BG filter → Mask (bbox only) → Crop → Pad → Save .npz"""
@@ -194,9 +176,7 @@ for name, src, dst in [('train', train_dir, processed_train),
     preprocess_and_save_all(src, dst, IMG_SIZE)
 
 
-# ============================================================================
-# Cell 10: Visualize Preprocessing
-# ============================================================================
+# --- Visualize Preprocessing ---
 
 def visualize_pipeline(src_dir, dst_dir, cls='1', n=4):
     pairs = []
@@ -221,9 +201,7 @@ def visualize_pipeline(src_dir, dst_dir, cls='1', n=4):
 visualize_pipeline(train_dir, processed_train, '1', 4)
 
 
-# ============================================================================
-# Cell 11: Build File Lists + Dataset
-# ============================================================================
+# --- Build File Lists + Dataset ---
 
 def build_file_list(data_dir):
     files, labels = [], []
@@ -269,9 +247,7 @@ class MammogramDataset(Dataset):
                 label)
 
 
-# ============================================================================
-# Cell 12: DataLoader
-# ============================================================================
+# --- DataLoader ---
 BATCH_SIZE = 16; NUM_WORKERS = 2
 
 train_ds = MammogramDataset(train_files, train_labels, augment=True)
@@ -285,12 +261,10 @@ img, msk, lbl = train_ds[0]
 print(f'Sample: image={img.shape}, mask={msk.shape}, label={lbl}')
 
 
-# ============================================================================
-# Cell 13: Attention Modules
-# ============================================================================
-# [CHANGED from v2] Soft-guided attention replaces hard mask gating.
-# [NEW] Anomaly detector: finds hotspot regions from attention map.
-# [NEW] Local feature extractor: crops and pools anomaly region features.
+# --- Attention Modules ---
+# Update from v2: Soft-guided attention replaces hard mask gating.
+# Added: Anomaly detector: finds hotspot regions from attention map.
+# Added: Local feature extractor: crops and pools anomaly region features.
 
 class SoftGuidedSpatialAttention(nn.Module):
     """
@@ -412,13 +386,11 @@ class AnomalyRegionDetector(nn.Module):
         return local_feats, peaks
 
 
-# ============================================================================
-# Cell 14: Model Definition — Global + Local Dual-Branch
-# ============================================================================
-# [CHANGED from v2] Hard mask attention → Soft-guided attention
-# [NEW] Anomaly detector extracts local features from hotspot regions
-# [NEW] Global + Local fusion: classifier uses both branches
-# [CHANGED from v2] in_channels=1 (no 3-ch expansion)
+# --- Model Definition — Global + Local Dual-Branch ---
+# Update from v2: Hard mask attention → Soft-guided attention
+# Added: Anomaly detector extracts local features from hotspot regions
+# Added: Global + Local fusion: classifier uses both branches
+# Update from v2: in_channels=1 (no 3-ch expansion)
 
 class DenseNetAnomalyAware(nn.Module):
     """
@@ -494,9 +466,7 @@ disable_inplace(model)
 print(f"Total params: {sum(p.numel() for p in model.parameters()):,}")
 
 
-# ============================================================================
-# Cell 15: Training Configuration
-# ============================================================================
+# --- Training Configuration ---
 MAX_EPOCHS = 30; LR = 1e-4; WEIGHT_DECAY = 1e-4; PATIENCE = 10
 
 n0, n1 = train_labels.count(0), train_labels.count(1)
@@ -509,11 +479,9 @@ optimizer = torch.optim.Adam(model.parameters(), lr=LR, weight_decay=WEIGHT_DECA
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=MAX_EPOCHS, eta_min=1e-6)
 
 
-# ============================================================================
-# Cell 16: Training Loop
-# ============================================================================
-# [CHANGED from v2] model returns (logits, att_map, peaks) — only use logits for loss
-# [NEW] Prints learned alpha value each epoch to monitor mask influence
+# --- Training Loop ---
+# Update from v2: model returns (logits, att_map, peaks) — only use logits for loss
+# Added: Prints learned alpha value each epoch to monitor mask influence
 
 train_losses, val_accs, val_losses, lr_history = [], [], [], []
 best_val_acc = 0.0; patience_count = 0
@@ -569,9 +537,7 @@ print(f"\nBest Val Accuracy: {best_val_acc:.4f}")
 print(f"Final alpha: {torch.sigmoid(model.spatial_attention.alpha_raw).item():.3f}")
 
 
-# ============================================================================
-# Cell 17: Training Curves
-# ============================================================================
+# --- Training Curves ---
 x = range(1, len(train_losses)+1)
 fig, axes = plt.subplots(1, 3, figsize=(16, 4))
 axes[0].plot(x, train_losses, 'o-', label='Train'); axes[0].plot(x, val_losses, 's-', label='Val')
@@ -582,9 +548,7 @@ axes[2].plot(x, lr_history, 'o-'); axes[2].set_title('LR'); axes[2].grid(True)
 plt.tight_layout(); plt.savefig(os.path.join(base_dir, 'curve_v2_1.png'), dpi=150); plt.show()
 
 
-# ============================================================================
-# Cell 18: Evaluation
-# ============================================================================
+# --- Evaluation ---
 model.load_state_dict(torch.load(model_path, map_location=device))
 model.eval()
 disable_inplace(model)
@@ -599,9 +563,7 @@ with torch.no_grad():
 all_preds = np.array(all_preds); all_labels_e = np.array(all_labels_e); all_probs = np.array(all_probs)
 
 
-# ============================================================================
-# Cell 19: Confusion Matrix + Report
-# ============================================================================
+# --- Confusion Matrix + Report ---
 CN = ['Benign', 'Malignant']
 cm = confusion_matrix(all_labels_e, all_preds)
 plt.figure(figsize=(8, 6))
@@ -621,12 +583,10 @@ if auc: print(f"AUC:{auc:.4f}")
 print("\n"+classification_report(all_labels_e,all_preds,target_names=CN,digits=4))
 
 
-# ============================================================================
-# Cell 20: Grad-CAM + Anomaly Box Visualization
-# ============================================================================
-# [NEW] Draws red bounding boxes around detected anomaly hotspots
-# [NEW] Shows zoomed-in crops of each anomaly region
-# [CHANGED from v2] 5-column layout: Original | Mask | Heatmap+Boxes | Overlay | Local Crops
+# --- Grad-CAM + Anomaly Box Visualization ---
+# Added: Draws red bounding boxes around detected anomaly hotspots
+# Added: Shows zoomed-in crops of each anomaly region
+# Update from v2: 5-column layout: Original | Mask | Heatmap+Boxes | Overlay | Local Crops
 
 class GradCAMAnomaly:
     """Grad-CAM that also returns anomaly peak locations for box drawing."""
@@ -684,9 +644,7 @@ def overlay_heatmap(image, heatmap, alpha=0.4):
     return np.clip((1-alpha)*img3 + alpha*hm, 0, 1)
 
 
-# ============================================================================
-# Cell 21: Full Visualization with Anomaly Boxes
-# ============================================================================
+# --- Full Visualization with Anomaly Boxes ---
 
 grad_cam = GradCAMAnomaly(model, target_layer=model.spatial_attention.spatial_conv)
 
@@ -773,9 +731,7 @@ plt.savefig(os.path.join(base_dir, 'gradcam_anomaly_v2_1.png'), dpi=150, bbox_in
 plt.show()
 
 
-# ============================================================================
-# Cell 22: Attention Statistics
-# ============================================================================
+# --- Attention Statistics ---
 
 n_ana = min(50, len(valid_ds))
 ana_idx = np.random.choice(len(valid_ds), n_ana, replace=False)

@@ -1,17 +1,11 @@
-# ============================================================================
-# Cell 1: Mount Google Drive
-# ============================================================================
+# --- Mount Google Drive ---
 from google.colab import drive
 drive.mount('/content/drive')
 
-# ============================================================================
-# Cell 2: Install Dependencies
-# ============================================================================
+# --- Install Dependencies ---
 # !pip install -q scikit-learn opencv-python-headless
 
-# ============================================================================
-# Cell 3: Import Libraries
-# ============================================================================
+# --- Import Libraries ---
 import os, glob, shutil, cv2
 import numpy as np
 import torch
@@ -37,9 +31,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Device: {device}')
 
 
-# ============================================================================
-# Cell 4: Path Configuration
-# ============================================================================
+# --- Path Configuration ---
 base_dir        = '/content/drive/MyDrive/breast cancer'
 train_dir       = os.path.join(base_dir, 'train')
 valid_dir       = os.path.join(base_dir, 'valid')
@@ -52,9 +44,7 @@ model_path      = '/content/drive/MyDrive/best_efficientnet_v3.pth'
 IMG_SIZE        = 224
 
 
-# ============================================================================
-# Cell 5: Image Loading
-# ============================================================================
+# --- Image Loading ---
 
 def load_image_grayscale(file_path):
     """Load any image as grayscale float32, range [0, 1]."""
@@ -73,9 +63,7 @@ def load_image_grayscale(file_path):
         return None
 
 
-# ============================================================================
-# Cell 6: White-BG Detection
-# ============================================================================
+# --- White-BG Detection ---
 
 def is_white_background(image, wr_thresh=0.3, br_thresh=0.5, mean_thresh=0.7):
     """Returns True if image has a white background."""
@@ -88,9 +76,7 @@ def is_white_background(image, wr_thresh=0.3, br_thresh=0.5, mean_thresh=0.7):
     return False
 
 
-# ============================================================================
-# Cell 7: Breast Mask Creation (ONLY for finding bounding box)
-# ============================================================================
+# --- Breast Mask Creation (ONLY for finding bounding box) ---
 
 def create_breast_mask(image):
     """
@@ -113,9 +99,7 @@ def create_breast_mask(image):
     return (labels == largest).astype(np.uint8)
 
 
-# ============================================================================
-# Cell 8: Crop + Pad (NO stretching, NO internal masking)
-# ============================================================================
+# --- Crop + Pad (NO stretching, NO internal masking) ---
 
 def crop_and_pad(image, mask, target_size=224):
     """
@@ -161,9 +145,7 @@ def crop_and_pad(image, mask, target_size=224):
     return proc_img, proc_mask
 
 
-# ============================================================================
-# Cell 9: Batch Preprocess + Save
-# ============================================================================
+# --- Batch Preprocess + Save ---
 
 def preprocess_and_save_all(src_dir, dst_dir, target_size=224):
     """
@@ -217,9 +199,7 @@ for name, src, dst in [('train', train_dir, processed_train),
     preprocess_and_save_all(src, dst, IMG_SIZE)
 
 
-# ============================================================================
-# Cell 10: Visualize Preprocessing
-# ============================================================================
+# --- Visualize Preprocessing ---
 
 def visualize_pipeline(src_dir, dst_dir, cls='1', n=4):
     """Show: Original → Breast Mask → Cropped+Padded (original pixels preserved)"""
@@ -247,9 +227,7 @@ def visualize_pipeline(src_dir, dst_dir, cls='1', n=4):
 visualize_pipeline(train_dir, processed_train, cls='1', n=4)
 
 
-# ============================================================================
-# Cell 11: Build File Lists + Dataset
-# ============================================================================
+# --- Build File Lists + Dataset ---
 
 def build_file_list(data_dir):
     files, labels = [], []
@@ -309,9 +287,7 @@ class MammogramDataset(Dataset):
         return image, mask, label
 
 
-# ============================================================================
-# Cell 12: DataLoader
-# ============================================================================
+# --- DataLoader ---
 BATCH_SIZE  = 16
 NUM_WORKERS = 2
 
@@ -327,9 +303,7 @@ img, msk, lbl = train_ds[0]
 print(f'Sample: image={img.shape}, mask={msk.shape}, label={lbl}')
 
 
-# ============================================================================
-# Cell 13: Soft-Guided Spatial Attention Module
-# ============================================================================
+# --- Soft-Guided Spatial Attention Module ---
 
 class SoftGuidedAttention(nn.Module):
     """
@@ -384,9 +358,7 @@ class SoftGuidedAttention(nn.Module):
         return x * spatial_att
 
 
-# ============================================================================
-# Cell 14: EfficientNet-B0 + Soft-Guided Attention Model
-# ============================================================================
+# --- EfficientNet-B0 + Soft-Guided Attention Model ---
 
 class EfficientNetSoftAttention(nn.Module):
     """
@@ -467,9 +439,7 @@ train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print(f"Total params: {total_params:,} | Trainable: {train_params:,}")
 
 
-# ============================================================================
-# Cell 15: Training Configuration
-# ============================================================================
+# --- Training Configuration ---
 MAX_EPOCHS   = 30
 LR           = 1e-4
 WEIGHT_DECAY = 1e-4
@@ -487,9 +457,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=LR, weight_decay=WEIGHT_DECA
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=MAX_EPOCHS, eta_min=1e-6)
 
 
-# ============================================================================
-# Cell 16: Training Loop
-# ============================================================================
+# --- Training Loop ---
 train_losses, val_accs, val_losses, lr_history = [], [], [], []
 best_val_acc = 0.0
 patience_count = 0
@@ -548,9 +516,7 @@ print(f"\nBest Val Accuracy: {best_val_acc:.4f}")
 print(f"Final alpha (mask influence): {torch.sigmoid(model.attention.alpha_raw).item():.3f}")
 
 
-# ============================================================================
-# Cell 17: Training Curves
-# ============================================================================
+# --- Training Curves ---
 x = range(1, len(train_losses)+1)
 fig, axes = plt.subplots(1, 3, figsize=(16, 4))
 axes[0].plot(x, train_losses, 'o-', label='Train'); axes[0].plot(x, val_losses, 's-', label='Val')
@@ -562,9 +528,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(base_dir, 'training_curve_v3.png'), dpi=150); plt.show()
 
 
-# ============================================================================
-# Cell 18: Evaluation
-# ============================================================================
+# --- Evaluation ---
 model.load_state_dict(torch.load(model_path, map_location=device))
 model.eval()
 
@@ -581,9 +545,7 @@ all_labels_e = np.array(all_labels_e)
 all_probs = np.array(all_probs)
 
 
-# ============================================================================
-# Cell 19: Confusion Matrix + Report
-# ============================================================================
+# --- Confusion Matrix + Report ---
 CN = ['Benign', 'Malignant']
 cm = confusion_matrix(all_labels_e, all_preds)
 plt.figure(figsize=(8, 6))
@@ -606,9 +568,7 @@ if auc: print(f"AUC: {auc:.4f}")
 print("\n" + classification_report(all_labels_e, all_preds, target_names=CN, digits=4))
 
 
-# ============================================================================
-# Cell 20: Grad-CAM Tool
-# ============================================================================
+# --- Grad-CAM Tool ---
 
 class GradCAM:
     """Grad-CAM adapted for model that takes (image, mask) as input."""
@@ -652,9 +612,7 @@ def overlay_heatmap(image, heatmap, alpha=0.4):
     return np.clip((1-alpha)*img3 + alpha*hm, 0, 1)
 
 
-# ============================================================================
-# Cell 21: Grad-CAM Visualization
-# ============================================================================
+# --- Grad-CAM Visualization ---
 
 model.load_state_dict(torch.load(model_path, map_location=device))
 model.eval()
@@ -709,9 +667,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(base_dir, 'gradcam_v3.png'), dpi=150, bbox_inches='tight'); plt.show()
 
 
-# ============================================================================
-# Cell 22: With Mask vs Without Mask Comparison
-# ============================================================================
+# --- With Mask vs Without Mask Comparison ---
 
 print("=" * 70)
 print("Comparison: Soft-guided attention WITH vs WITHOUT breast mask")
@@ -747,9 +703,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(base_dir, 'guided_vs_unguided_v3.png'), dpi=150, bbox_inches='tight'); plt.show()
 
 
-# ============================================================================
-# Cell 23: Attention Statistics
-# ============================================================================
+# --- Attention Statistics ---
 
 n_ana = min(50, len(valid_ds))
 ana_idx = np.random.choice(len(valid_ds), n_ana, replace=False)
